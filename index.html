@@ -16,7 +16,7 @@
 body {
     margin: 0;
     padding: 8px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: darkred;
     font-family: 'Arial', sans-serif;
     display: flex;
     justify-content: center;
@@ -28,11 +28,7 @@ body {
 
 .game-container {
     text-align: center;
-    background: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    border-radius: 12px;
     padding: 8px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     width: 95%;
     max-width: min(100vw - 16px, 420px);
     margin-top: max(8px, env(safe-area-inset-top));
@@ -45,10 +41,10 @@ h1 {
 }
 
 #gameCanvas {
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(0, 0, 0, 0.2);
     border-radius: 8px;
     background: #f0f8ff;
-    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0px 0px rgba(0, 0, 0, 0.2);
     width: 100%;
     height: auto;
     touch-action: none;
@@ -197,15 +193,14 @@ button:active {
 </head>
 <body>
     <div class="game-container">
-        <h1>🍉 Watermelon Game</h1>
         <div class="game-info">
             <div>Score: <span id="score">0</span></div>
-            <div>Next: <span id="nextFruit">🍒</span></div>
+            <div><span id="nextFruit">🍒</span></div>
         </div>
         <canvas id="gameCanvas" width="400" height="600"></canvas>
         <div id="loadingMessage" class="loading-message">Loading fruit images...</div>
         <div class="controls">
-            Tap to drop fruit • Move finger to aim
+            Tap to drop urte • Move finger to aim
         </div>
         <button onclick="resetGame()">Reset Game</button>
     </div>
@@ -288,16 +283,16 @@ button:active {
 
         // Fruit types with local images and emoji fallbacks
         const fruitTypes = [
-            { name: 'cherry', image: 'images/cherry.png', emoji: '🍒', size: 20, points: 1, color: '#ff6b6b' },
-            { name: 'strawberry', image: 'images/strawberry.png', emoji: '🍓', size: 28, points: 3, color: '#ff8a8a' },
-            { name: 'grape', image: 'images/grape.png', emoji: '🍇', size: 35, points: 6, color: '#9b59b6' },
-            { name: 'orange', image: 'images/orange.png', emoji: '🍊', size: 42, points: 10, color: '#f39c12' },
-            { name: 'peach', image: 'images/peach.png', emoji: '🍑', size: 50, points: 15, color: '#ffb3ba' },
-            { name: 'kiwi', image: 'images/kiwi.png', emoji: '🥝', size: 58, points: 21, color: '#2ecc71' },
-            { name: 'mango', image: 'images/mango.png', emoji: '🥭', size: 68, points: 28, color: '#e67e22' },
-            { name: 'pineapple', image: 'images/pineapple.png', emoji: '🍍', size: 78, points: 36, color: '#f1c40f' },
-            { name: 'coconut', image: 'images/coconut.png', emoji: '🥥', size: 88, points: 45, color: '#8b4513' },
-            { name: 'watermelon', image: 'images/watermelon.png', emoji: '🍉', size: 98, points: 55, color: '#27ae60' }
+            { name: 'cherry', image: 'images/cherry.png', emoji: 'i love you!', size: 20, points: 1, color: '#ff6b6b' },
+            { name: 'strawberry', image: 'images/strawberry.png', emoji: 'you are the best', size: 28, points: 3, color: '#ff8a8a' },
+            { name: 'grape', image: 'images/grape.png', emoji: 'you are doing so amazing', size: 35, points: 6, color: '#9b59b6' },
+            { name: 'orange', image: 'images/orange.png', emoji: 'wow', size: 42, points: 10, color: '#f39c12' },
+            { name: 'peach', image: 'images/peach.png', emoji: 'that is so impressive', size: 50, points: 15, color: '#ffb3ba' },
+            { name: 'kiwi', image: 'images/kiwi.png', emoji: 'you are on fire!', size: 58, points: 21, color: '#2ecc71' },
+            { name: 'mango', image: 'images/mango.png', emoji: 'i am so lazy', size: 68, points: 28, color: '#e67e22' },
+            { name: 'pineapple', image: 'images/pineapple.png', emoji: 'amazing!', size: 78, points: 36, color: '#f1c40f' },
+            { name: 'coconut', image: 'images/coconut.png', emoji: 'you are the best player in the world', size: 88, points: 45, color: '#8b4513' },
+            { name: 'watermelon', image: 'images/watermelon.png', emoji: 'woah', size: 98, points: 55, color: '#27ae60' }
         ];
 
         // Game constants
@@ -368,8 +363,8 @@ button:active {
         }
 
         // Physics properties
-        const gravity = 0.35;
-        const airResistance = 0.985;
+        const gravity = 0.45;
+        const airResistance = 0.995;
         const groundFriction = 0.85;
         const wallFriction = 0.75;
         const minVelocity = 0.002;
@@ -395,6 +390,10 @@ button:active {
                 this.justCreated = true;
                 this.restFrames = 0;
                 this.framesSinceCreated = 0;
+                this.angle = 0; // current rotation angle (radians)
+                this.angularVelocity = 0; // rotational speed
+                this.angularAcceleration = 0; // rotational acceleration
+
             }
 
             // Get the actual radius considering scale
@@ -437,7 +436,32 @@ button:active {
 
                 // Apply gravity
                 this.vy += gravity;
-                
+
+                // Simulate torque: horizontal velocity affects angular acceleration
+                // The bigger the vx, the faster it should spin
+                this.angularAcceleration = this.vx * 0.0006;
+
+                // Apply damping (simulate rotational friction)
+                this.angularVelocity += this.angularAcceleration;
+                this.angularVelocity *= 0.98;
+
+                // Update angle
+                this.angle += this.angularVelocity;
+
+                // Keep angle within 0–2π (optional but clean)
+                this.angle %= Math.PI * 2;
+
+                // Stop spinning when nearly settled
+                if (
+                    this.restFrames > 10 &&
+                    Math.abs(this.vx) < 0.05 &&
+                    Math.abs(this.vy) < 0.05 &&
+                    Math.abs(this.angularVelocity) < 0.01
+                ) {
+                    this.angularVelocity = 0;
+                }
+
+                                
                 // Update position
                 this.x += this.vx;
                 this.y += this.vy;
@@ -486,6 +510,7 @@ button:active {
                         this.vx *= -wallFriction;
                     }
                 }
+                
 
                 // Velocity dampening
                 if (Math.abs(this.vx) < minVelocity && this.restFrames > 20) this.vx = 0;
@@ -654,10 +679,13 @@ button:active {
                     ctx.arc(this.x, this.y, renderSize, 0, Math.PI * 2);
                     ctx.clip();
 
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(this.angle);
                     ctx.drawImage(
                         this.image,
-                        this.x - renderSize,
-                        this.y - renderSize,
+                        -renderSize,
+                        -renderSize,
                         renderSize * 2,
                         renderSize * 2
                     );
@@ -704,7 +732,7 @@ function checkGameOver() {
         // Trigger game over if fruit is above danger line and has had time to settle
         // Reduced the time requirement from 120 frames to 60 frames (1 second)
         if (fruitTop < GAME_AREA.dangerLine && 
-            fruit.framesSinceCreated > 60 && // 1 second instead of 2
+            fruit.framesSinceCreated > 30 && // 1 second instead of 2
             Math.abs(fruit.vy) < 1) { // Less strict velocity check
             
             console.log('Game Over triggered! Fruit above danger line:', fruit);
@@ -855,7 +883,6 @@ function gameOver() {
             const scaleX = 400 / rect.width; // Scale touch coordinates to canvas coordinates
             mouseX = (touch.clientX - rect.left) * scaleX;
             mouseX = Math.max(40, Math.min(360, mouseX)); // Adjusted for scaled canvas
-            dropFruit();
         }, { passive: false });
 
         canvas.addEventListener('touchmove', (e) => {
@@ -871,6 +898,7 @@ function gameOver() {
         canvas.addEventListener('touchend', (e) => {
             e.preventDefault();
             isTouching = false;
+            dropFruit(); // Drop fruit on touch end
         }, { passive: false });
 
         // Enhanced mouse support for desktop
