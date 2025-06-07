@@ -445,6 +445,11 @@ button:active {
                 this.angularVelocity += this.angularAcceleration;
                 this.angularVelocity *= 0.98;
 
+                // Clamp velocities to prevent glitches
+                this.vx = Math.max(Math.min(this.vx, 10), -10);
+                this.vy = Math.max(Math.min(this.vy, 10), -10);
+                this.angularVelocity = Math.max(Math.min(this.angularVelocity, 1), -1);
+
                 // Update angle
                 this.angle += this.angularVelocity;
 
@@ -487,7 +492,7 @@ button:active {
                     
                     this.vx *= groundFriction;
                     
-                    if (this.restFrames > 30) {
+                    if (this.restFrames > 10) {
                         this.vx *= 0.95;
                         this.vy *= 0.95;
                     }
@@ -644,6 +649,14 @@ button:active {
 
             draw() {
                 if (this.merged || this.markedForRemoval) return;
+                if (
+                    !isFinite(this.x) || !isFinite(this.y) ||
+                    !isFinite(this.getRadius()) || !isFinite(this.angle)
+                ) {
+                    console.warn('Skipping draw: invalid fruit position or angle', this);
+                    return;
+                }
+
 
                 ctx.save();
                 
