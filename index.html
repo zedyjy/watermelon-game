@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Watermelon Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            margin: 0;
+            padding: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+        }
+        
+        .game-container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            width: 100%;
+            max-width: 480px;
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 5px;
+            }
+            
+            .game-container {
+                padding: 15px;
+                border-radius: 15px;
+            }
+        }
+        
+        h1 {
+            margin-bottom: 15px;
+            font-size: 2.2em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.8em;
+                margin-bottom: 10px;
+            }
+        }
+        
+        #gameCanvas {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            background: #f0f8ff;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            margin: 15px 0;
+            max-width: 100%;
+            height: auto;
+            touch-action: none;
+        }
+        
+        @media (max-width: 480px) {
+            #gameCanvas {
+                border: 2px solid rgba(255, 255, 255, 0.3);
+                margin: 10px 0;
+            }
+        }
+        
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 15px 0;
+            font-size: 1.1em;
+            font-weight: bold;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        @media (max-width: 480px) {
+            .game-info {
+                font-size: 1em;
+                margin: 10px 0;
+            }
+        }
+        
+        .controls {
+            margin-top: 15px;
+            font-size: 1em;
+            opacity: 0.9;
+        }
+        
+        @media (max-width: 480px) {
+            .controls {
+                font-size: 0.9em;
+                margin-top: 10px;
+            }
+        }
+        
+        .game-over {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            display: none;
+            z-index: 1000;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+            border: none;
+            color: white;
+            padding: 12px 25px;
+            font-size: 16px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            min-height: 44px; /* Minimum touch target size */
+            min-width: 120px;
+        }
+        
+        @media (max-width: 480px) {
+            button {
+                padding: 14px 28px;
+                font-size: 16px;
+                margin: 6px;
+                min-height: 48px; /* Larger touch targets on mobile */
+                min-width: 140px;
+            }
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        .loading-message {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1.1em;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>🍉 Watermelon Game</h1>
+        <div class="game-info">
+            <div>Score: <span id="score">0</span></div>
+            <div>Next: <span id="nextFruit">🍒</span></div>
+        </div>
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        <div id="loadingMessage" class="loading-message">Loading fruit images...</div>
+        <div class="controls">
+            Click to drop fruit • Move mouse to aim
+        </div>
+        <button onclick="resetGame()">Reset Game</button>
+    </div>
+    
+    <div id="gameOver" class="game-over">
+        <h2>Game Over!</h2>
+        <p>Final Score: <span id="finalScore">0</span></p>
+        <button onclick="resetGame()">Play Again</button>
+    </div>
+
+    <script>
+        // Game setup with responsive canvas
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const nextFruitElement = document.getElementById('nextFruit');
+        const gameOverElement = document.getElementById('gameOver');
+        const finalScoreElement = document.getElementById('finalScore');
+        const loadingMessageElement = document.getElementById('loadingMessage');
+
+        // Responsive canvas setup
+        function setupCanvas() {
+            const container = document.querySelector('.game-container');
+            const maxWidth = Math.min(400, window.innerWidth - 40);
+            const aspectRatio = 600 / 400; // height / width
+            
+            canvas.style.width = maxWidth + 'px';
+            canvas.style.height = (maxWidth * aspectRatio) + 'px';
+            
+            // Set actual canvas size for crisp rendering
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = 400 * dpr;
+            canvas.height = 600 * dpr;
+            ctx.scale(dpr, dpr);
+            
+            // Set CSS size
+            canvas.style.width = maxWidth + 'px';
+            canvas.style.height = (maxWidth * aspectRatio) + 'px';
+        }
+
+        // Call setup on load and resize
+        setupCanvas();
+        window.addEventListener('resize', setupCanvas);
+
+        // Game state
+        let gameRunning = true;
+        let score = 0;
+        let fruits = [];
+        let currentFruit = null;
+        let nextFruitType = 0;
+        let mouseX = canvas.width / 2;
+        let gameOverTriggered = false;
+
+        // Fruit types with local images and emoji fallbacks
+        const fruitTypes = [
+            { name: 'cherry', image: 'images/cherry.png', emoji: '🍒', size: 20, points: 1, color: '#ff6b6b' },
+            { name: 'strawberry', image: 'images/strawberry.png', emoji: '🍓', size: 28, points: 3, color: '#ff8a8a' },
+            { name: 'grape', image: 'images/grape.png', emoji: '🍇', size: 35, points: 6, color: '#9b59b6' },
+            { name: 'orange', image: 'images/orange.png', emoji: '🍊', size: 42, points: 10, color: '#f39c12' },
+            { name: 'peach', image: 'images/peach.png', emoji: '🍑', size: 50, points: 15, color: '#ffb3ba' },
+            { name: 'kiwi', image: 'images/kiwi.png', emoji: '🥝', size: 58, points: 21, color: '#2ecc71' },
+            { name: 'mango', image: 'images/mango.png', emoji: '🥭', size: 68, points: 28, color: '#e67e22' },
+            { name: 'pineapple', image: 'images/pineapple.png', emoji: '🍍', size: 78, points: 36, color: '#f1c40f' },
+            { name: 'coconut', image: 'images/coconut.png', emoji: '🥥', size: 88, points: 45, color: '#8b4513' },
+            { name: 'watermelon', image: 'images/watermelon.png', emoji: '🍉', size: 98, points: 55, color: '#27ae60' }
+        ];
+
+        // Image loading system
+        const fruitImages = {};
+        let imagesLoaded = 0;
+        let imagesFailedToLoad = 0;
+        let totalImages = fruitTypes.length;
+        let gameInitialized = false;
+
+        function preloadImages() {
+            console.log('Starting to preload images...');
+            
+            fruitTypes.forEach((fruit, index) => {
+                const img = new Image();
+                
+                img.onload = () => {
+                    console.log(`Successfully loaded: ${fruit.image}`);
+                    fruitImages[index] = img;
+                    imagesLoaded++;
+                    checkAllImagesProcessed();
+                };
+                
+                img.onerror = () => {
+                    console.warn(`Failed to load image: ${fruit.image} - Will use emoji fallback`);
+                    fruitImages[index] = null; // Mark as failed but continue
+                    imagesFailedToLoad++;
+                    checkAllImagesProcessed();
+                };
+                
+                // Set source to trigger loading
+                img.src = fruit.image;
+            });
+        }
+
+        function checkAllImagesProcessed() {
+            const totalProcessed = imagesLoaded + imagesFailedToLoad;
+            
+            if (totalProcessed === totalImages && !gameInitialized) {
+                console.log(`Image loading complete! Loaded: ${imagesLoaded}, Failed: ${imagesFailedToLoad}`);
+                
+                // Update loading message
+                if (imagesLoaded === totalImages) {
+                    loadingMessageElement.textContent = 'All images loaded successfully!';
+                } else if (imagesLoaded > 0) {
+                    loadingMessageElement.textContent = `${imagesLoaded} images loaded, ${imagesFailedToLoad} using emoji fallback`;
+                } else {
+                    loadingMessageElement.textContent = 'Using emoji graphics (images not found)';
+                }
+                
+                // Hide loading message after a short delay
+                setTimeout(() => {
+                    loadingMessageElement.style.display = 'none';
+                }, 2000);
+                
+                gameInitialized = true;
+                generateNextFruit();
+                gameLoop();
+            }
+        }
+
+        // Physics properties
+        const gravity = 0.35;
+        const airResistance = 0.985;
+        const groundFriction = 0.85;
+        const wallFriction = 0.75;
+        const minVelocity = 0.002;
+
+        class Fruit {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.type = type;
+                this.size = fruitTypes[type].size;
+                this.name = fruitTypes[type].name;
+                this.image = fruitImages[type];
+                this.emoji = fruitTypes[type].emoji;
+                this.color = fruitTypes[type].color;
+                this.merged = false;
+                this.markedForRemoval = false;
+                this.mergeDelay = 0;
+                this.id = Math.random();
+                this.scale = 1;
+                this.targetScale = 1;
+                this.justCreated = true;
+                this.restFrames = 0;
+            }
+
+            update() {
+                if (this.merged || this.markedForRemoval) return;
+
+                if (this.mergeDelay > 0) {
+                    this.mergeDelay--;
+                }
+
+                // Smooth scaling animation
+                if (this.scale !== this.targetScale) {
+                    this.scale += (this.targetScale - this.scale) * 0.15;
+                    if (Math.abs(this.scale - this.targetScale) < 0.01) {
+                        this.scale = this.targetScale;
+                    }
+                }
+
+                // New fruit scaling effect
+                if (this.justCreated) {
+                    this.scale = 0.5;
+                    this.targetScale = 1;
+                    this.justCreated = false;
+                }
+
+                // Apply air resistance
+                this.vx *= airResistance;
+                this.vy *= airResistance;
+
+                // Apply gravity
+                this.vy += gravity;
+                
+                // Update position
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Track rest state
+                if (Math.abs(this.vx) < 0.1 && Math.abs(this.vy) < 0.1) {
+                    this.restFrames++;
+                } else {
+                    this.restFrames = 0;
+                }
+
+                // Ground collision
+                if (this.y + this.size * this.scale >= canvas.height - 10) {
+                    this.y = canvas.height - 10 - this.size * this.scale;
+                    
+                    if (Math.abs(this.vy) > 0.5) {
+                        this.vy *= -0.15;
+                    } else if (Math.abs(this.vy) > 0.1) {
+                        this.vy *= -0.05;
+                    } else {
+                        this.vy = 0;
+                    }
+                    
+                    this.vx *= groundFriction;
+                    
+                    if (this.restFrames > 30) {
+                        this.vx *= 0.95;
+                        this.vy *= 0.95;
+                    }
+                }
+
+                // Wall collisions
+                if (this.x - this.size * this.scale <= 10) {
+                    this.x = 10 + this.size * this.scale;
+                    if (this.vx < 0) {
+                        const energyTransfer = Math.abs(this.vx) * 0.2;
+                        this.vy += energyTransfer;
+                        this.vx *= -wallFriction;
+                    }
+                }
+                if (this.x + this.size * this.scale >= canvas.width - 10) {
+                    this.x = canvas.width - 10 - this.size * this.scale;
+                    if (this.vx > 0) {
+                        const energyTransfer = Math.abs(this.vx) * 0.2;
+                        this.vy += energyTransfer;
+                        this.vx *= -wallFriction;
+                    }
+                }
+
+                // Velocity dampening
+                if (Math.abs(this.vx) < minVelocity && this.restFrames > 20) this.vx = 0;
+                if (Math.abs(this.vy) < minVelocity && this.restFrames > 20) this.vy = 0;
+
+                // Collision detection and merging
+                this.checkCollisions();
+            }
+
+            checkCollisions() {
+                for (let i = 0; i < fruits.length; i++) {
+                    const other = fruits[i];
+                    if (other === this || other.merged || other.markedForRemoval) continue;
+
+                    const dx = this.x - other.x;
+                    const dy = this.y - other.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const minDistance = (this.size * this.scale) + (other.size * other.scale);
+                    
+                    if (distance < minDistance && distance > 0) {
+                        // Check for merging first
+                        if (other.type === this.type && 
+                            this.type < fruitTypes.length - 1 && 
+                            this.mergeDelay <= 0 && 
+                            other.mergeDelay <= 0 &&
+                            !this.markedForRemoval &&
+                            !other.markedForRemoval) {
+                            
+                            this.performMerge(other);
+                            return; // Exit after merge to avoid processing more collisions
+                        }
+                        
+                        // Physics collision - IMPROVED SEPARATION
+                        this.handlePhysicsCollision(other, dx, dy, distance, minDistance);
+                    }
+                }
+            }
+
+            performMerge(other) {
+                // Mark both fruits for removal
+                this.markedForRemoval = true;
+                other.markedForRemoval = true;
+                
+                // Create merged fruit
+                const newX = (this.x + other.x) / 2;
+                const newY = Math.min(this.y, other.y) - 2;
+                const newFruit = new Fruit(newX, newY, this.type + 1);
+                newFruit.mergeDelay = 10;
+                newFruit.vy = -1;
+                newFruit.scale = 1.2;
+                newFruit.targetScale = 1;
+                
+                // Transfer momentum
+                newFruit.vx = (this.vx + other.vx) * 0.3;
+                newFruit.vy += (this.vy + other.vy) * 0.2;
+                
+                fruits.push(newFruit);
+                
+                // Add score
+                score += fruitTypes[this.type + 1].points;
+                scoreElement.textContent = score;
+            }
+
+            handlePhysicsCollision(other, dx, dy, distance, minDistance) {
+                // Calculate overlap and separate fruits immediately
+                const overlap = minDistance - distance + 1; // Added +1 for extra separation
+                const normalX = dx / distance;
+                const normalY = dy / distance;
+                
+                // Move fruits apart with stronger separation
+                const separationForce = overlap * 0.6; // Increased from 0.15
+                const moveX = normalX * separationForce * 0.5;
+                const moveY = normalY * separationForce * 0.5;
+                
+                this.x += moveX;
+                this.y += moveY;
+                other.x -= moveX;
+                other.y -= moveY;
+                
+                // Ensure fruits don't go through walls after separation
+                const thisRadius = this.size * this.scale;
+                const otherRadius = other.size * other.scale;
+                
+                // Keep fruits within bounds
+                this.x = Math.max(10 + thisRadius, Math.min(canvas.width - 10 - thisRadius, this.x));
+                other.x = Math.max(10 + otherRadius, Math.min(canvas.width - 10 - otherRadius, other.x));
+                
+                // Keep fruits above ground
+                this.y = Math.min(canvas.height - 10 - thisRadius, this.y);
+                other.y = Math.min(canvas.height - 10 - otherRadius, other.y);
+                
+                // Calculate relative velocity
+                const relativeVelocityX = this.vx - other.vx;
+                const relativeVelocityY = this.vy - other.vy;
+                
+                // Calculate collision response
+                const velocityAlongNormal = relativeVelocityX * normalX + relativeVelocityY * normalY;
+                
+                // Objects are separating, no collision response needed
+                if (velocityAlongNormal > 0) return;
+                
+                // Calculate restitution (bounciness)
+                const restitution = 0.4; // Reduced from 0.7 for more realistic bouncing
+                const impulse = -(1 + restitution) * velocityAlongNormal;
+                
+                // Apply impulse with mass consideration (all fruits have equal mass)
+                const impulseX = impulse * normalX * 0.5;
+                const impulseY = impulse * normalY * 0.5;
+                
+                this.vx += impulseX;
+                this.vy += impulseY;
+                other.vx -= impulseX;
+                other.vy -= impulseY;
+                
+                // Add some friction
+                const frictionCoeff = 0.1;
+                const tangentX = -normalY;
+                const tangentY = normalX;
+                const velocityAlongTangent = relativeVelocityX * tangentX + relativeVelocityY * tangentY;
+                const frictionImpulse = -frictionCoeff * velocityAlongTangent;
+                
+                this.vx += frictionImpulse * tangentX * 0.5;
+                this.vy += frictionImpulse * tangentY * 0.5;
+                other.vx -= frictionImpulse * tangentX * 0.5;
+                other.vy -= frictionImpulse * tangentY * 0.5;
+                
+                // Reset rest frames to prevent sticking
+                this.restFrames = 0;
+                other.restFrames = 0;
+            }
+
+            draw() {
+                if (this.merged || this.markedForRemoval) return;
+
+                ctx.save();
+                
+                const renderSize = this.size * this.scale;
+                
+                // Draw background circle with gradient
+                const gradient = ctx.createRadialGradient(
+                    this.x - renderSize * 0.3, 
+                    this.y - renderSize * 0.3, 
+                    0,
+                    this.x, 
+                    this.y, 
+                    renderSize
+                );
+                gradient.addColorStop(0, this.color + '60');
+                gradient.addColorStop(0.7, this.color + '30');
+                gradient.addColorStop(1, this.color + '10');
+                
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, renderSize, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                
+                // Draw subtle outline
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                
+                // Draw fruit image with circular clipping or emoji fallback
+                if (this.image && this.image.complete && this.image.naturalWidth > 0) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, renderSize, 0, Math.PI * 2);
+                    ctx.clip();
+
+                    ctx.drawImage(
+                        this.image,
+                        this.x - renderSize,
+                        this.y - renderSize,
+                        renderSize * 2,
+                        renderSize * 2
+                    );
+                    ctx.restore();
+                }
+                else {
+                    // Fallback to emoji if image not loaded or failed
+                    ctx.font = `${renderSize * 1.4}px serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                    ctx.fillText(this.emoji, this.x, this.y);
+                }
+                
+                ctx.restore();
+            }
+        }
+
+        function generateNextFruit() {
+            nextFruitType = Math.floor(Math.random() * 7);
+            nextFruitElement.textContent = fruitTypes[nextFruitType].emoji;
+        }
+
+        function dropFruit() {
+            if (!gameRunning || gameOverTriggered || !gameInitialized) return;
+            
+            currentFruit = new Fruit(mouseX, 60, nextFruitType);
+            currentFruit.mergeDelay = 5;
+            fruits.push(currentFruit);
+            generateNextFruit();
+        }
+
+        function checkGameOver() {
+            if (gameOverTriggered) return;
+            
+            for (let fruit of fruits) {
+                if (!fruit.merged && !fruit.markedForRemoval &&
+                    fruit.y - fruit.size < 120 && 
+                    Math.abs(fruit.vy) < 0.5 && 
+                    Math.abs(fruit.vx) < 0.5 &&
+                    fruit.y > 80) {
+                    
+                    gameOverTriggered = true;
+                    setTimeout(() => {
+                        let stillDangerous = false;
+                        for (let checkFruit of fruits) {
+                            if (!checkFruit.merged && !checkFruit.markedForRemoval &&
+                                checkFruit.y - checkFruit.size < 120 && 
+                                Math.abs(checkFruit.vy) < 0.5) {
+                                stillDangerous = true;
+                                break;
+                            }
+                        }
+                        if (gameRunning && stillDangerous) {
+                            gameOver();
+                        } else {
+                            gameOverTriggered = false;
+                        }
+                    }, 2000);
+                    return;
+                }
+            }
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            finalScoreElement.textContent = score;
+            gameOverElement.style.display = 'block';
+        }
+
+        function resetGame() {
+            gameRunning = true;
+            gameOverTriggered = false;
+            score = 0;
+            fruits = [];
+            currentFruit = null;
+            scoreElement.textContent = score;
+            gameOverElement.style.display = 'none';
+            generateNextFruit();
+        }
+
+        function gameLoop() {
+            if (!gameInitialized) {
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw game area
+            ctx.fillStyle = '#e8f4f8';
+            ctx.fillRect(10, 10, canvas.width - 20, canvas.height - 20);
+            
+            // Draw game area border
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 10;
+            ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
+            
+            // Draw danger line
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([10, 5]);
+            ctx.beginPath();
+            ctx.moveTo(10, 120);
+            ctx.lineTo(canvas.width - 10, 120);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Draw drop line and preview
+            if (gameRunning && !gameOverTriggered) {
+                ctx.strokeStyle = 'rgba(0, 100, 255, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(mouseX, 0);
+                ctx.lineTo(mouseX, 80);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Draw preview fruit
+                ctx.save();
+                ctx.globalAlpha = 0.8;
+                const previewFruit = fruitTypes[nextFruitType];
+                
+                const gradient = ctx.createRadialGradient(
+                    mouseX - previewFruit.size * 0.3, 
+                    40 - previewFruit.size * 0.3, 
+                    0,
+                    mouseX, 
+                    40, 
+                    previewFruit.size
+                );
+                gradient.addColorStop(0, previewFruit.color + '80');
+                gradient.addColorStop(0.7, previewFruit.color + '40');
+                gradient.addColorStop(1, previewFruit.color + '20');
+                
+                ctx.beginPath();
+                ctx.arc(mouseX, 40, previewFruit.size, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                
+                // Draw preview with image or emoji
+                if (fruitImages[nextFruitType] && fruitImages[nextFruitType].complete) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(mouseX, 40, previewFruit.size, 0, Math.PI * 2);
+                    ctx.clip();
+                    
+                    const imageSize = previewFruit.size * 1.7;
+                    ctx.drawImage(
+                        fruitImages[nextFruitType],
+                        mouseX - previewFruit.size,
+                        40 - previewFruit.size,
+                        previewFruit.size * 2,
+                        previewFruit.size * 2
+                    );
+                    ctx.restore();
+                } else {
+                    ctx.font = `${previewFruit.size * 1.4}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                    ctx.fillText(previewFruit.emoji, mouseX, 40);
+                }
+                ctx.restore();
+            }
+            
+            // Clean up marked fruits
+            fruits = fruits.filter(fruit => !fruit.markedForRemoval);
+            
+            // Update and draw fruits
+            for (let fruit of fruits) {
+                fruit.update();
+                fruit.draw();
+            }
+            
+            // Check game over condition
+            if (gameRunning && !gameOverTriggered) {
+                checkGameOver();
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Enhanced touch support with better mobile handling
+        let isTouching = false;
+        
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            isTouching = true;
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const scaleX = 400 / rect.width; // Scale touch coordinates to canvas coordinates
+            mouseX = (touch.clientX - rect.left) * scaleX;
+            mouseX = Math.max(40, Math.min(360, mouseX)); // Adjusted for scaled canvas
+            dropFruit();
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!isTouching) return;
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const scaleX = 400 / rect.width;
+            mouseX = (touch.clientX - rect.left) * scaleX;
+            mouseX = Math.max(40, Math.min(360, mouseX));
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            isTouching = false;
+        }, { passive: false });
+
+        // Enhanced mouse support for desktop
+        canvas.addEventListener('mousemove', (e) => {
+            if (isTouching) return; // Ignore mouse if touching
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = 400 / rect.width;
+            mouseX = (e.clientX - rect.left) * scaleX;
+            mouseX = Math.max(40, Math.min(360, mouseX));
+        });
+
+        canvas.addEventListener('click', (e) => {
+            if (isTouching) return; // Ignore mouse clicks if touching
+            dropFruit();
+        });
+
+        // Initialize game by preloading images
+        preloadImages();
+
+        // Start the game loop (it will wait for images to load)
+        gameLoop();
+    </script>
+</body>
+</html>
